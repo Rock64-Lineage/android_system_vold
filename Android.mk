@@ -12,6 +12,7 @@ common_src_files := \
 	fs/F2fs.cpp \
 	fs/Ntfs.cpp \
 	fs/Vfat.cpp \
+	fs/Ntfs.cpp \
 	Loop.cpp \
 	Devmapper.cpp \
 	ResponseCode.cpp \
@@ -36,7 +37,11 @@ crypto_src_files := \
 	Ext4Crypt.cpp \
 	Keymaster.cpp \
 	KeyStorage.cpp \
-	ScryptParameters.cpp
+	ScryptParameters.cpp \
+	secontext.cpp \
+	MiscManager.cpp \
+        Misc.cpp \
+        G3Dev.cpp
 
 common_c_includes := \
 	system/extras/ext4_utils \
@@ -96,6 +101,13 @@ ifeq ($(TARGET_KERNEL_HAVE_NTFS),true)
 vold_cflags += -DCONFIG_KERNEL_HAVE_NTFS
 endif
 
+#add for disable selinux product
+ifneq (,$(filter px3,$(TARGET_PRODUCT)))
+  vold_cflags += -DDISABLE_SELINUX=1
+else
+  vold_cflags += -DDISABLE_SELINUX=0
+endif
+
 include $(CLEAR_VARS)
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
@@ -130,6 +142,10 @@ LOCAL_INIT_RC := vold.rc
 LOCAL_C_INCLUDES := $(common_c_includes)
 LOCAL_CFLAGS := $(vold_cflags)
 LOCAL_CONLYFLAGS := $(vold_conlyflags)
+ifeq ($(strip $(BOARD_HAVE_DONGLE)),true)
+LOCAL_CFLAGS += -Werror=format
+LOCAL_CFLAGS += -DUSE_USB_MODE_SWITCH
+endif
 
 LOCAL_SHARED_LIBRARIES := $(common_shared_libraries)
 LOCAL_STATIC_LIBRARIES := libvold $(common_static_libraries)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2008 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef ANDROID_VOLD_NTFS_H
-#define ANDROID_VOLD_NTFS_H
-#ifndef _NTFS_H
-#define _NTFS_H
 
-#include <unistd.h>
+#ifndef _G3DEV_H
+#define _G3DEV_H
 
-class Ntfs {
+#include <utils/List.h>
+
+#include "Misc.h"
+class NetlinkEvent;
+
+class G3Dev : public Misc {
 public:
-    static int check(const char *fsPath);
-	static int doMount(const char *fsPath, const char *mountPoint, bool ro, int ownerUid,int ownerGid);
-	static int unMount(const char *mountPoint);
-	static int format(const char *fsPath, unsigned int numSectors, bool wipe, const char *label);
+    G3Dev(MiscManager *mm);
+    virtual ~G3Dev();
+    NetlinkEvent *env;
+    int handleUsbEvent(NetlinkEvent *evt);
+    int handleScsiEvent(NetlinkEvent *evt);
+    int handleUsb();
+    int get_tty_id(int *vid, int* pid);
+    int atox( const char * line, int f_base );
 };
 
 #endif

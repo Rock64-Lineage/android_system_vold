@@ -40,6 +40,8 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <fs_mgr.h>
+#include "G3Dev.h"
+#include  "MiscManager.h"
 
 static int process_config(VolumeManager *vm, bool* has_adoptable);
 static void coldboot(const char *path);
@@ -128,7 +130,21 @@ extern "C" int vold_main(int argc, char** argv) {
         PLOG(ERROR) << "Unable to start NetlinkManager";
         exit(1);
     }
-
+ #ifdef USE_USB_MODE_SWITCH
+    MiscManager *mm;
+    if (!(mm = MiscManager::Instance())) {
+        PLOG(ERROR) << "Unable to create MiscManager";
+        exit(1);
+    };
+    mm->setBroadcaster((SocketListener *) cl);
+    if (mm->start()) {
+        LOG(ERROR) << "Unable to start MiscManager";
+	exit(1);
+    }
+    G3Dev* g3 = new G3Dev(mm);
+    g3->handleUsb();
+    mm->addMisc(g3);
+#endif
     coldboot("/sys/block");
 //    coldboot("/sys/class/switch");
 

@@ -19,6 +19,9 @@
 #include "fs/F2fs.h"
 #include "fs/Ntfs.h"
 #include "fs/Vfat.h"
+#include "fs/Ext4.h"
+#include "fs/F2fs.h"
+#include "fs/Ntfs.h"
 #include "PublicVolume.h"
 #include "Utils.h"
 #include "VolumeManager.h"
@@ -27,6 +30,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/logging.h>
 #include <cutils/fs.h>
+#include <cutils/properties.h>
 #include <private/android_filesystem_config.h>
 
 #include <fcntl.h>
@@ -108,6 +112,7 @@ status_t PublicVolume::doMount() {
     // TODO: expand to support mounting other filesystems
     readMetadata();
 
+
     if (!IsFilesystemSupported(mFsType)) {
         LOG(ERROR) << getId() << " unsupported filesystem " << mFsType;
         return -EIO;
@@ -147,7 +152,7 @@ status_t PublicVolume::doMount() {
     int ret = 0;
     if (mFsType == "exfat") {
         ret = exfat::Check(mDevPath);
-    } else if (mFsType == "ext4") {
+    } else if (mFsType == "ext4" || mFsType == "ext3" || mFsType == "ext2") {
         ret = ext4::Check(mDevPath, mRawPath, false);
     } else if (mFsType == "f2fs") {
         ret = f2fs::Check(mDevPath, false);
@@ -166,7 +171,7 @@ status_t PublicVolume::doMount() {
     if (mFsType == "exfat") {
         ret = exfat::Mount(mDevPath, mRawPath, false, false, false,
                 AID_MEDIA_RW, AID_MEDIA_RW, 0007);
-    } else if (mFsType == "ext4") {
+    } else if (mFsType == "ext4" || mFsType == "ext3" || mFsType == "ext2") {
         ret = ext4::Mount(mDevPath, mRawPath, false, false, true, mMntOpts,
                 false, true);
     } else if (mFsType == "f2fs") {
@@ -182,6 +187,29 @@ status_t PublicVolume::doMount() {
     }
     if (ret) {
         PLOG(ERROR) << getId() << " failed to mount " << mDevPath;
+            PLOG(ERROR) << getId() << " failed filesystem check";
+            return -EIO;
+        }
+
+        if (ext4::Mount(mDevPath, mRawPath, false, false, true)) {
+            PLOG(ERROR) << getId() << " failed to mount";
+            return -EIO;
+        }
+
+    } else if (mFsType == "f2fs") {
+        int res = f2fs::Check(mDevPath);
+        if (res == 0) {
+            LOG(DEBUG) << getId() << " passed filesystem check";
+        } else {
+            PLOG(ERROR) << getId() << " failed filesystem check";
+            return -EIO;
+        }
+
+        if (f2fs::Mount(mDevPath, mRawPath)) {
+            PLOG(ERROR) << getId() << " failed to mount";
+            return -EIO;
+        }
+
         return -EIO;
     }
 
@@ -196,9 +224,18 @@ status_t PublicVolume::doMount() {
 
     if (!(getMountFlags() & MountFlags::kVisible)) {
         // Not visible to apps, so no need to spin up FUSE
-        return OK;
+	char prop_value[PROPERTY_VALUE_MAX];
+	property_get("ro.udisk.visible", prop_value, "");
+	if(!strcmp("true",prop_value))
+	{
+		LOG(DEBUG)<<"------force all volume visible-----------";	
+	}
+	else
+	{
+		LOG(DEBUG)<<"----Not visible to apps, so no need to spin up FUSE----";
+		return OK;
+	}
     }
-
     if (fs_prepare_dir(mFuseDefault.c_str(), 0700, AID_ROOT, AID_ROOT) ||
             fs_prepare_dir(mFuseRead.c_str(), 0700, AID_ROOT, AID_ROOT) ||
             fs_prepare_dir(mFuseWrite.c_str(), 0700, AID_ROOT, AID_ROOT)) {
